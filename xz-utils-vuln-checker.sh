@@ -93,11 +93,26 @@ echo "[+] Checking xz-utils version for vulnerabilities..."
 
 # Check if vulnerable version is installed
 if [[ "$version" == *"5.6.0"* || "$version" == *"5.6.1"* ]]; then
-    if [[ "$PKG_MANAGER" == "apt-get" && "$version" == *"5.6.1+really5.4.5-1"* ]]; then
-        print_green "You appear to be safe."
-    else
-        print_red "Vulnerable version of xz-utils found: $version"
+    set -eu
+
+    # find path to liblzma used by sshd
+    path="$(ldd $(which sshd) | grep liblzma | grep -o '/[^ ]*')"
+
+    # does it even exist?
+    if [ "$path" == "" ]
+    then
+            print_green "You appear to be safe."
+            exit
     fi
+
+    # check for function signature
+    if hexdump -ve '1/1 "%.2x"' "$path" | grep -q f30f1efa554889f54c89ce5389fb81e7000000804883ec28488954241848894c2410
+    then
+            print_red probably vulnerable to CVE-2024-3094
+    else
+            print_green "You appear to be safe."
+    fi
+
 else
     print_green "You appear to be safe."
 fi
